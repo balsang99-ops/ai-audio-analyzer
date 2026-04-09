@@ -444,12 +444,29 @@ async function startAnalysis(){
 
 // ── AssemblyAI 업로드 ──
 async function uploadToAssemblyAI(apiKey, file){
+  // M4A 등 파일 타입 명시
+  var contentType = file.type || 'audio/mp4';
+  if(file.name.toLowerCase().endsWith('.m4a')) contentType = 'audio/mp4';
+  if(file.name.toLowerCase().endsWith('.mp3')) contentType = 'audio/mpeg';
+  if(file.name.toLowerCase().endsWith('.wav')) contentType = 'audio/wav';
+  if(file.name.toLowerCase().endsWith('.ogg')) contentType = 'audio/ogg';
+  if(file.name.toLowerCase().endsWith('.flac')) contentType = 'audio/flac';
+  if(file.name.toLowerCase().endsWith('.aac')) contentType = 'audio/aac';
+  if(file.name.toLowerCase().endsWith('.webm')) contentType = 'audio/webm';
+
   var res = await fetch('https://api.assemblyai.com/v2/upload', {
     method: 'POST',
-    headers: { 'authorization': apiKey },
+    headers: {
+      'authorization': apiKey,
+      'content-type': contentType,
+      'transfer-encoding': 'chunked'
+    },
     body: file
   });
-  if(!res.ok) throw new Error('파일 업로드 실패. API 키를 확인해주세요. (status: ' + res.status + ')');
+  if(!res.ok){
+    var errText = await res.text().catch(function(){ return ''; });
+    throw new Error('파일 업로드 실패 (status: ' + res.status + ') — API 키 확인 필요. ' + errText);
+  }
   var data = await res.json();
   return data.upload_url;
 }
@@ -464,7 +481,8 @@ async function transcribeWithAssemblyAI(apiKey, audioUrl){
       audio_url: audioUrl,
       language_code: 'ko',
       punctuate: true,
-      format_text: true
+      format_text: true,
+      speech_model: 'best'
     })
   });
   if(!res.ok) throw new Error('변환 요청 실패. (status: ' + res.status + ')');
