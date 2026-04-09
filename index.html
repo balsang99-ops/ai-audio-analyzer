@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>통화 변환 & 요약 — AI 분석기</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07090F;--bg2:#0D1117;--card:#111827;--card2:#1C2435;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.12);
+  --teal:#00D4C8;--teal2:#00A89E;--tealbg:rgba(0,212,200,.08);
+  --orange:#FF6B2B;--orangebg:rgba(255,107,43,.08);
+  --green:#00C896;--greenbg:rgba(0,200,150,.08);
+  --yellow:#FFD600;--yellowbg:rgba(255,214,0,.08);
+  --red:#FF3B5C;--redbg:rgba(255,59,92,.08);
+  --t1:#E2E8F0;--t2:#94A3B8;--t3:#475569;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;font-weight:300;}
+
+/* 배경 글로우 */
+.bg-glow{position:fixed;pointer-events:none;border-radius:50%;filter:blur(100px);opacity:.07;}
+.g1{width:500px;height:500px;background:var(--teal);top:-150px;right:-100px;}
+.g2{width:400px;height:400px;background:var(--orange);bottom:-100px;left:-80px;}
+
+.wrap{max-width:800px;margin:0 auto;padding:32px 20px 60px;position:relative;z-index:1;}
+
+/* 헤더 */
+.header{text-align:center;margin-bottom:36px;}
+.logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:14px;}
+.logo-icon{width:42px;height:42px;background:linear-gradient(135deg,var(--teal),var(--teal2));border-radius:12px;
+  display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 20px rgba(0,212,200,.3);}
+.logo-text{font-family:'Black Han Sans',sans-serif;font-size:18px;letter-spacing:.05em;}
+.logo-text span{color:var(--teal);}
+.h-title{font-family:'Black Han Sans',sans-serif;font-size:clamp(22px,5vw,36px);margin-bottom:8px;line-height:1.3;}
+.h-title span{color:var(--teal);}
+.h-sub{font-size:13px;color:var(--t2);line-height:1.7;}
+
+/* API 키 설정 */
+.api-section{background:var(--card);border:1px solid var(--border2);border-radius:18px;padding:20px;margin-bottom:20px;}
+.api-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--teal);margin-bottom:14px;}
+.api-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.input-group{display:flex;flex-direction:column;gap:6px;}
+.input-label{font-size:11px;color:var(--t2);font-weight:500;letter-spacing:.05em;}
+.api-input{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;
+  font-size:12px;color:var(--t1);font-family:'Noto Sans KR',sans-serif;outline:none;width:100%;
+  transition:border-color .2s;}
+.api-input:focus{border-color:var(--teal);}
+.api-input::placeholder{color:var(--t3);}
+.api-note{font-size:10.5px;color:var(--t3);margin-top:6px;line-height:1.6;}
+.api-note a{color:var(--teal);text-decoration:none;}
+
+/* 업로드 영역 */
+.upload-section{margin-bottom:20px;}
+.drop-zone{border:2px dashed rgba(0,212,200,.3);border-radius:20px;padding:40px 20px;text-align:center;
+  cursor:pointer;transition:all .25s;background:var(--tealbg);position:relative;overflow:hidden;}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--teal);background:rgba(0,212,200,.12);}
+.drop-zone.drag{transform:scale(1.01);}
+.drop-icon{font-size:44px;margin-bottom:12px;display:block;}
+.drop-title{font-family:'Black Han Sans',sans-serif;font-size:18px;margin-bottom:6px;color:var(--teal);}
+.drop-sub{font-size:12px;color:var(--t2);line-height:1.7;}
+.drop-formats{display:flex;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap;}
+.fmt-badge{background:rgba(255,255,255,.05);border:1px solid var(--border);padding:3px 10px;
+  border-radius:20px;font-size:11px;color:var(--t2);}
+#file-input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+
+/* 파일 선택됨 */
+.file-selected{display:none;background:var(--card);border:1px solid rgba(0,200,150,.3);
+  border-radius:14px;padding:14px 18px;margin-top:12px;
+  display:flex;align-items:center;gap:12px;}
+.file-icon{font-size:24px;flex-shrink:0;}
+.file-info{flex:1;}
+.file-name{font-size:13px;font-weight:700;margin-bottom:2px;}
+.file-size{font-size:11px;color:var(--t2);}
+.file-remove{background:var(--redbg);border:1px solid rgba(255,59,92,.2);color:var(--red);
+  font-size:11px;padding:4px 10px;border-radius:20px;cursor:pointer;border:none;font-family:'Noto Sans KR',sans-serif;}
+
+/* 옵션 */
+.options-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+.opt-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all .2s;}
+.opt-card.active{border-color:var(--teal);background:var(--tealbg);}
+.opt-card:hover{border-color:var(--border2);}
+.opt-title{font-size:13px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.opt-desc{font-size:11px;color:var(--t2);line-height:1.6;}
+
+/* 실행 버튼 */
+.run-btn{width:100%;padding:16px;background:linear-gradient(135deg,var(--teal),var(--teal2));
+  border:none;border-radius:14px;font-family:'Black Han Sans',sans-serif;font-size:18px;
+  color:#0D1117;cursor:pointer;transition:all .2s;margin-bottom:20px;
+  box-shadow:0 0 24px rgba(0,212,200,.25);}
+.run-btn:hover{transform:translateY(-1px);box-shadow:0 0 32px rgba(0,212,200,.35);}
+.run-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+/* 진행 상태 */
+.progress-box{display:none;background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:20px;margin-bottom:20px;}
+.progress-steps{display:flex;flex-direction:column;gap:10px;}
+.p-step{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);}
+.p-step.active{background:var(--tealbg);border-color:rgba(0,212,200,.3);}
+.p-step.done{background:var(--greenbg);border-color:rgba(0,200,150,.3);}
+.p-step.error{background:var(--redbg);border-color:rgba(255,59,92,.3);}
+.p-dot{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.p-dot.wait{background:rgba(255,255,255,.05);color:var(--t3);}
+.p-dot.spin{background:var(--tealbg);animation:spin 1s linear infinite;}
+.p-dot.ok{background:var(--greenbg);color:var(--green);}
+.p-dot.fail{background:var(--redbg);color:var(--red);}
+@keyframes spin{to{transform:rotate(360deg)}}
+.p-label{font-size:13px;flex:1;}
+.p-label.active{color:var(--teal);}
+.p-label.done{color:var(--green);}
+
+/* 결과 영역 */
+.result-section{display:none;}
+.result-tabs{display:flex;gap:8px;margin-bottom:14px;}
+.rtab{padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:20px;
+  font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;color:var(--t2);}
+.rtab.on{background:var(--tealbg);border-color:var(--teal);color:var(--teal);}
+.rpanel{display:none;}
+.rpanel.on{display:block;animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* 결과 카드 */
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;margin-bottom:14px;}
+.rc-title{font-size:12px;font-weight:700;color:var(--teal);letter-spacing:.08em;
+  text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.rc-body{font-size:13px;color:var(--t1);line-height:1.9;white-space:pre-wrap;word-break:break-word;}
+
+/* 핵심 포인트 */
+.points-list{list-style:none;}
+.points-list li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);
+  font-size:13px;color:var(--t1);line-height:1.7;}
+.points-list li:last-child{border:none;}
+.points-list li::before{content:'▶';color:var(--teal);font-size:11px;flex-shrink:0;margin-top:3px;}
+
+/* 메타 정보 */
+.meta-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.meta-item{background:var(--card2);border-radius:12px;padding:12px 14px;}
+.meta-label{font-size:10px;color:var(--t3);font-weight:500;letter-spacing:.1em;margin-bottom:4px;text-transform:uppercase;}
+.meta-value{font-size:14px;font-weight:700;color:var(--t1);}
+.meta-value.teal{color:var(--teal);}
+
+/* 액션 버튼들 */
+.action-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.act-btn{padding:8px 16px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;
+  border:none;font-family:'Noto Sans KR',sans-serif;transition:all .2s;display:flex;align-items:center;gap:6px;}
+.act-copy{background:var(--tealbg);border:1px solid rgba(0,212,200,.3);color:var(--teal);}
+.act-copy:hover{background:rgba(0,212,200,.15);}
+.act-dl{background:var(--greenbg);border:1px solid rgba(0,200,150,.3);color:var(--green);}
+.act-dl:hover{background:rgba(0,200,150,.15);}
+.act-reset{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--t2);}
+
+/* 오디오 플레이어 */
+.audio-player{background:var(--card2);border-radius:12px;padding:12px 16px;margin-bottom:14px;}
+.audio-player audio{width:100%;height:36px;outline:none;}
+.audio-label{font-size:11px;color:var(--t2);margin-bottom:6px;font-weight:500;}
+
+/* 에러 메시지 */
+.error-box{display:none;background:var(--redbg);border:1px solid rgba(255,59,92,.3);
+  border-radius:14px;padding:16px 18px;margin-bottom:16px;font-size:13px;color:var(--red);line-height:1.7;}
+
+@media(max-width:500px){
+  .options-row{grid-template-columns:1fr;}
+  .api-row{grid-template-columns:1fr;}
+  .meta-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-glow g1"></div>
+<div class="bg-glow g2"></div>
+
+<div class="wrap">
+
+  <!-- 헤더 -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">🎙️</div>
+      <div class="logo-text"><span>AI</span> 통화분석기</div>
+    </div>
+    <h1 class="h-title">통화 파일을 <span>텍스트</span>로<br>AI가 바로 요약합니다</h1>
+    <p class="h-sub">m4a · mp3 · wav · ogg · webm 지원 · 한국어 특화 · Claude AI 요약</p>
+  </div>
+
+  <!-- API 키 설정 -->
+  <div class="api-section">
+    <div class="api-title">⚙️ API 설정 (최초 1회)</div>
+    <div class="api-row">
+      <div class="input-group">
+        <div class="input-label">ASSEMBLYAI API KEY (음성 → 텍스트)</div>
+        <input type="password" id="assemblyai-key" class="api-input" placeholder="assemblyai api key 입력...">
+        <div class="api-note">무료 가입: <a href="https://www.assemblyai.com" target="_blank">assemblyai.com</a> · 월 5시간 무료</div>
+      </div>
+      <div class="input-group">
+        <div class="input-label">ANTHROPIC API KEY (AI 요약)</div>
+        <input type="password" id="anthropic-key" class="api-input" placeholder="anthropic api key 입력...">
+        <div class="api-note">발급: <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 파일 업로드 -->
+  <div class="upload-section">
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".m4a,.mp3,.wav,.ogg,.webm,.aac,.flac">
+      <span class="drop-icon">🎵</span>
+      <div class="drop-title">파일을 여기에 드래그하거나 클릭하세요</div>
+      <div class="drop-sub">통화 녹음 · 회의 녹음 · 인터뷰 · 강의 · 모든 오디오 파일</div>
+      <div class="drop-formats">
+        <span class="fmt-badge">M4A</span>
+        <span class="fmt-badge">MP3</span>
+        <span class="fmt-badge">WAV</span>
+        <span class="fmt-badge">OGG</span>
+        <span class="fmt-badge">WEBM</span>
+        <span class="fmt-badge">AAC</span>
+        <span class="fmt-badge">FLAC</span>
+      </div>
+    </div>
+    <div class="file-selected" id="file-selected">
+      <div class="file-icon">🎙️</div>
+      <div class="file-info">
+        <div class="file-name" id="file-name">파일명.m4a</div>
+        <div class="file-size" id="file-size">0 MB</div>
+      </div>
+      <button class="file-remove" onclick="removeFile()">✕ 제거</button>
+    </div>
+  </div>
+
+  <!-- 분석 옵션 -->
+  <div class="options-row">
+    <div class="opt-card active" id="opt-meeting" onclick="selectOpt('meeting')">
+      <div class="opt-title">🤝 회의·미팅</div>
+      <div class="opt-desc">회의 내용 요약 + 결정사항 + 액션 아이템 추출</div>
+    </div>
+    <div class="opt-card" id="opt-call" onclick="selectOpt('call')">
+      <div class="opt-title">📞 통화·상담</div>
+      <div class="opt-desc">통화 내용 요약 + 주요 합의사항 + 후속 조치</div>
+    </div>
+    <div class="opt-card" id="opt-lecture" onclick="selectOpt('lecture')">
+      <div class="opt-title">🎓 강의·세미나</div>
+      <div class="opt-desc">핵심 내용 + 중요 포인트 + 학습 요약</div>
+    </div>
+    <div class="opt-card" id="opt-general" onclick="selectOpt('general')">
+      <div class="opt-title">📝 일반 분석</div>
+      <div class="opt-desc">전체 내용 요약 + 핵심 키워드 + 주제 분석</div>
+    </div>
+  </div>
+
+  <!-- 에러 메시지 -->
+  <div class="error-box" id="error-box"></div>
+
+  <!-- 실행 버튼 -->
+  <button class="run-btn" id="run-btn" onclick="startAnalysis()">
+    🚀 AI 분석 시작
+  </button>
+
+  <!-- 진행 상태 -->
+  <div class="progress-box" id="progress-box">
+    <div class="progress-steps">
+      <div class="p-step" id="step1">
+        <div class="p-dot wait" id="dot1">1</div>
+        <div class="p-label" id="label1">파일 업로드 중...</div>
+      </div>
+      <div class="p-step" id="step2">
+        <div class="p-dot wait" id="dot2">2</div>
+        <div class="p-label" id="label2">음성 → 텍스트 변환 중 (AssemblyAI)</div>
+      </div>
+      <div class="p-step" id="step3">
+        <div class="p-dot wait" id="dot3">3</div>
+        <div class="p-label" id="label3">AI 요약 분석 중 (Claude)</div>
+      </div>
+      <div class="p-step" id="step4">
+        <div class="p-dot wait" id="dot4">✓</div>
+        <div class="p-label" id="label4">완료!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="result-section" id="result-section">
+    <div id="audio-player-wrap" class="audio-player" style="display:none;">
+      <div class="audio-label">🎵 원본 오디오</div>
+      <audio id="audio-player" controls></audio>
+    </div>
+
+    <div class="meta-grid" id="meta-grid" style="margin-bottom:14px;"></div>
+
+    <div class="result-tabs">
+      <button class="rtab on" onclick="switchTab('summary',this)">📋 요약</button>
+      <button class="rtab" onclick="switchTab('transcript',this)">📄 전체 텍스트</button>
+      <button class="rtab" onclick="switchTab('points',this)">💡 핵심 포인트</button>
+    </div>
+
+    <div class="rpanel on" id="panel-summary">
+      <div class="result-card">
+        <div class="rc-title">📋 AI 요약</div>
+        <div class="rc-body" id="summary-text"></div>
+      </div>
+    </div>
+
+    <div class="rpanel" id="panel-transcript">
+      <div class="result-card">
+        <div class="rc-title">📄 전체 변환 텍스트</div>
+        <div class="rc-body" id="transcript-text"></div>
+      </div>
+    </div>
+
+    <div class="rpanel" id="panel-points">
+      <div class="result-card">
+        <div class="rc-title">💡 핵심 포인트</div>
+        <ul class="points-list" id="points-list"></ul>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="act-btn act-copy" onclick="copyAll()">📋 전체 복사</button>
+      <button class="act-btn act-dl" onclick="downloadTxt()">💾 TXT 저장</button>
+      <button class="act-btn act-reset" onclick="resetAll()">🔄 새 파일 분석</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var selectedFile = null;
+var selectedOpt = 'meeting';
+var transcriptResult = '';
+var summaryResult = '';
+var pointsResult = [];
+
+// ── 파일 드래그앤드롭 ──
+var dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', function(){ dz.classList.remove('drag'); });
+dz.addEventListener('drop', function(e){
+  e.preventDefault(); dz.classList.remove('drag');
+  var f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+document.getElementById('file-input').addEventListener('change', function(e){
+  if(e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(f){
+  selectedFile = f;
+  document.getElementById('file-name').textContent = f.name;
+  document.getElementById('file-size').textContent = (f.size/1024/1024).toFixed(2) + ' MB';
+  document.getElementById('file-selected').style.display = 'flex';
+}
+
+function removeFile(){
+  selectedFile = null;
+  document.getElementById('file-selected').style.display = 'none';
+  document.getElementById('file-input').value = '';
+}
+
+// ── 옵션 선택 ──
+function selectOpt(opt){
+  selectedOpt = opt;
+  ['meeting','call','lecture','general'].forEach(function(o){
+    document.getElementById('opt-'+o).classList.toggle('active', o===opt);
+  });
+}
+
+// ── 진행 상태 업데이트 ──
+function setStep(n, status, label){
+  var step = document.getElementById('step'+n);
+  var dot = document.getElementById('dot'+n);
+  var lbl = document.getElementById('label'+n);
+  step.className = 'p-step ' + status;
+  dot.className = 'p-dot ' + (status==='active'?'spin':status==='done'?'ok':status==='error'?'fail':'wait');
+  if(status==='active') dot.textContent = '⟳';
+  else if(status==='done') dot.textContent = '✓';
+  else if(status==='error') dot.textContent = '✕';
+  if(label) lbl.textContent = label;
+  lbl.className = 'p-label ' + status;
+}
+
+function showError(msg){
+  var eb = document.getElementById('error-box');
+  eb.style.display = 'block';
+  eb.innerHTML = '⚠️ ' + msg;
+}
+
+function hideError(){
+  document.getElementById('error-box').style.display = 'none';
+}
+
+// ── 메인 분석 시작 ──
+async function startAnalysis(){
+  hideError();
+
+  var aaiKey = document.getElementById('assemblyai-key').value.trim();
+  var anthKey = document.getElementById('anthropic-key').value.trim();
+
+  if(!aaiKey){ showError('AssemblyAI API 키를 입력해주세요. assemblyai.com에서 무료로 발급받을 수 있습니다.'); return; }
+  if(!anthKey){ showError('Anthropic API 키를 입력해주세요. console.anthropic.com에서 발급받을 수 있습니다.'); return; }
+  if(!selectedFile){ showError('분석할 오디오 파일을 선택해주세요.'); return; }
+
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('progress-box').style.display = 'block';
+  document.getElementById('result-section').style.display = 'none';
+
+  try {
+    // STEP 1: 파일 업로드
+    setStep(1,'active','파일 업로드 중...');
+    var uploadUrl = await uploadToAssemblyAI(aaiKey, selectedFile);
+    setStep(1,'done','파일 업로드 완료 ✓');
+
+    // STEP 2: 음성 변환
+    setStep(2,'active','음성 → 텍스트 변환 중... (파일 크기에 따라 1~3분 소요)');
+    var transcript = await transcribeWithAssemblyAI(aaiKey, uploadUrl);
+    transcriptResult = transcript;
+    setStep(2,'done','텍스트 변환 완료 ✓ (' + transcript.length + '자)');
+
+    // STEP 3: AI 요약
+    setStep(3,'active','Claude AI가 분석 중...');
+    var analysis = await analyzeWithClaude(anthKey, transcript, selectedOpt);
+    summaryResult = analysis.summary;
+    pointsResult = analysis.points;
+    setStep(3,'done','AI 분석 완료 ✓');
+
+    // STEP 4: 완료
+    setStep(4,'done','모든 분석 완료! 🎉');
+
+    // 결과 표시
+    showResults(transcript, analysis);
+
+  } catch(e) {
+    var errMsg = e.message || '알 수 없는 오류가 발생했습니다.';
+    // 현재 진행 중인 스텝 찾아서 에러 표시
+    for(var i=1;i<=4;i++){
+      if(document.getElementById('step'+i).classList.contains('active')){
+        setStep(i,'error','오류: ' + errMsg);
+        break;
+      }
+    }
+    showError(errMsg);
+    document.getElementById('run-btn').disabled = false;
+  }
+}
+
+// ── AssemblyAI 업로드 ──
+async function uploadToAssemblyAI(apiKey, file){
+  var res = await fetch('https://api.assemblyai.com/v2/upload', {
+    method: 'POST',
+    headers: { 'authorization': apiKey },
+    body: file
+  });
+  if(!res.ok) throw new Error('파일 업로드 실패. API 키를 확인해주세요. (status: ' + res.status + ')');
+  var data = await res.json();
+  return data.upload_url;
+}
+
+// ── AssemblyAI 변환 ──
+async function transcribeWithAssemblyAI(apiKey, audioUrl){
+  // 변환 요청
+  var res = await fetch('https://api.assemblyai.com/v2/transcript', {
+    method: 'POST',
+    headers: { 'authorization': apiKey, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      audio_url: audioUrl,
+      language_code: 'ko',
+      punctuate: true,
+      format_text: true
+    })
+  });
+  if(!res.ok) throw new Error('변환 요청 실패. (status: ' + res.status + ')');
+  var data = await res.json();
+  var transcriptId = data.id;
+
+  // 폴링
+  while(true){
+    await new Promise(function(r){ setTimeout(r, 3000); });
+    var poll = await fetch('https://api.assemblyai.com/v2/transcript/' + transcriptId, {
+      headers: { 'authorization': apiKey }
+    });
+    var pollData = await poll.json();
+    if(pollData.status === 'completed'){
+      return pollData.text || '(변환된 텍스트가 없습니다)';
+    } else if(pollData.status === 'error'){
+      throw new Error('변환 오류: ' + (pollData.error || '알 수 없는 오류'));
+    }
+    document.getElementById('label2').textContent = '음성 변환 중... (상태: ' + pollData.status + ')';
+  }
+}
+
+// ── Claude AI 분석 ──
+async function analyzeWithClaude(apiKey, transcript, optType){
+  var prompts = {
+    meeting: '아래는 회의 녹음을 텍스트로 변환한 내용입니다. 다음 형식으로 분석해주세요:\n1. 회의 요약 (3-5문장)\n2. 주요 결정사항\n3. 액션 아이템 및 담당자\n4. 핵심 포인트 5가지 (각 항목을 ||| 로 구분)\n\n분석 결과를 JSON으로 반환: {"summary": "요약내용", "details": "상세내용", "points": ["포인트1","포인트2","포인트3","포인트4","포인트5"]}',
+    call: '아래는 통화 녹음을 텍스트로 변환한 내용입니다. 다음 형식으로 분석해주세요:\n1. 통화 요약 (3-5문장)\n2. 주요 합의사항\n3. 후속 조치 필요 사항\n4. 핵심 포인트 5가지\n\n분석 결과를 JSON으로 반환: {"summary": "요약내용", "details": "상세내용", "points": ["포인트1","포인트2","포인트3","포인트4","포인트5"]}',
+    lecture: '아래는 강의/세미나 녹음을 텍스트로 변환한 내용입니다. 다음 형식으로 분석해주세요:\n1. 강의 주제 및 핵심 내용 요약\n2. 중요 개념 정리\n3. 학습 포인트\n4. 핵심 포인트 5가지\n\n분석 결과를 JSON으로 반환: {"summary": "요약내용", "details": "상세내용", "points": ["포인트1","포인트2","포인트3","포인트4","포인트5"]}',
+    general: '아래는 오디오 녹음을 텍스트로 변환한 내용입니다. 다음 형식으로 분석해주세요:\n1. 전체 내용 요약 (3-5문장)\n2. 주요 주제 및 내용\n3. 중요 언급 사항\n4. 핵심 포인트 5가지\n\n분석 결과를 JSON으로 반환: {"summary": "요약내용", "details": "상세내용", "points": ["포인트1","포인트2","포인트3","포인트4","포인트5"]}'
+  };
+
+  var systemPrompt = prompts[optType];
+  var userMsg = '변환된 텍스트:\n\n' + transcript.substring(0, 8000);
+
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+
+  if(!res.ok){
+    var errData = await res.json().catch(function(){ return {}; });
+    throw new Error('Claude API 오류: ' + (errData.error && errData.error.message || res.status));
+  }
+
+  var data = await res.json();
+  var text = data.content[0].text;
+
+  try {
+    var clean = text.replace(/```json|```/g,'').trim();
+    var parsed = JSON.parse(clean);
+    return {
+      summary: (parsed.summary || '') + (parsed.details ? '\n\n' + parsed.details : ''),
+      points: parsed.points || []
+    };
+  } catch(e) {
+    return { summary: text, points: [] };
+  }
+}
+
+// ── 결과 표시 ──
+function showResults(transcript, analysis){
+  // 오디오 플레이어
+  var audioWrap = document.getElementById('audio-player-wrap');
+  var audioEl = document.getElementById('audio-player');
+  if(selectedFile){
+    audioEl.src = URL.createObjectURL(selectedFile);
+    audioWrap.style.display = 'block';
+  }
+
+  // 메타 정보
+  var wordCount = transcript.split(' ').length;
+  var charCount = transcript.length;
+  var metaHtml = `
+    <div class="meta-item"><div class="meta-label">파일명</div><div class="meta-value teal" style="font-size:12px;">${selectedFile ? selectedFile.name : '-'}</div></div>
+    <div class="meta-item"><div class="meta-label">파일 크기</div><div class="meta-value">${selectedFile ? (selectedFile.size/1024/1024).toFixed(2)+' MB' : '-'}</div></div>
+    <div class="meta-item"><div class="meta-label">변환 글자수</div><div class="meta-value teal">${charCount.toLocaleString()}자</div></div>
+    <div class="meta-item"><div class="meta-label">분석 유형</div><div class="meta-value">${{meeting:'회의·미팅',call:'통화·상담',lecture:'강의·세미나',general:'일반'}[selectedOpt]}</div></div>
+  `;
+  document.getElementById('meta-grid').innerHTML = metaHtml;
+
+  // 요약
+  document.getElementById('summary-text').textContent = analysis.summary;
+
+  // 전체 텍스트
+  document.getElementById('transcript-text').textContent = transcript;
+
+  // 핵심 포인트
+  var pl = document.getElementById('points-list');
+  pl.innerHTML = '';
+  var pts = analysis.points;
+  if(!pts || pts.length === 0){
+    var lines = analysis.summary.split('\n').filter(function(l){ return l.trim(); }).slice(0,5);
+    pts = lines;
+  }
+  pts.forEach(function(pt){
+    var li = document.createElement('li');
+    li.textContent = pt;
+    pl.appendChild(li);
+  });
+
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('result-section').scrollIntoView({behavior:'smooth'});
+}
+
+// ── 탭 전환 ──
+function switchTab(tab, el){
+  document.querySelectorAll('.rtab').forEach(function(t){ t.classList.remove('on'); });
+  document.querySelectorAll('.rpanel').forEach(function(p){ p.classList.remove('on'); });
+  el.classList.add('on');
+  document.getElementById('panel-'+tab).classList.add('on');
+}
+
+// ── 복사 ──
+function copyAll(){
+  var txt = '=== AI 통화분석 결과 ===\n\n';
+  txt += '[ 요약 ]\n' + summaryResult + '\n\n';
+  txt += '[ 전체 텍스트 ]\n' + transcriptResult;
+  navigator.clipboard.writeText(txt).then(function(){
+    showToast('클립보드에 복사됐습니다!');
+  });
+}
+
+// ── 다운로드 ──
+function downloadTxt(){
+  var txt = '=== AI 통화분석 결과 ===\n';
+  txt += '분석일시: ' + new Date().toLocaleString('ko-KR') + '\n';
+  txt += '파일명: ' + (selectedFile ? selectedFile.name : '-') + '\n\n';
+  txt += '[ AI 요약 ]\n' + summaryResult + '\n\n';
+  txt += '[ 전체 변환 텍스트 ]\n' + transcriptResult;
+  var blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '통화분석_' + new Date().toISOString().slice(0,10) + '.txt';
+  a.click();
+}
+
+// ── 리셋 ──
+function resetAll(){
+  selectedFile = null;
+  transcriptResult = '';
+  summaryResult = '';
+  pointsResult = [];
+  document.getElementById('file-selected').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  document.getElementById('progress-box').style.display = 'none';
+  document.getElementById('result-section').style.display = 'none';
+  document.getElementById('run-btn').disabled = false;
+  hideError();
+  for(var i=1;i<=4;i++){
+    setStep(i,'','');
+    document.getElementById('dot'+i).textContent = i;
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── 토스트 ──
+function showToast(msg){
+  var t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#00C896;color:#fff;padding:10px 22px;border-radius:30px;font-size:13px;font-weight:700;z-index:9999;animation:fadeUp .3s ease;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 2500);
+}
+</script>
+</body>
+</html>
